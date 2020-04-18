@@ -1,4 +1,5 @@
 # go
+*.html
 *.test
 *.out
 *.exe

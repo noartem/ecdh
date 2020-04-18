@@ -9,9 +9,6 @@ import (
 	"math/big"
 )
 
-// TODO: Sign, Verify
-// TODO: Encrypt, Decrypt
-
 // KeyPair crypto key pair
 type KeyPair struct {
 	curve      elliptic.Curve
@@ -24,8 +21,8 @@ func (kp *KeyPair) PrivateKey() *ecdsa.PrivateKey {
 }
 
 // PublicKey return public key from key pair
-func (kp *KeyPair) PublicKey() *ecdsa.PublicKey {
-	return &kp.privateKey.PublicKey
+func (kp *KeyPair) PublicKey() ecdsa.PublicKey {
+	return kp.privateKey.PublicKey
 }
 
 // GenerateKey generate new random key pair
@@ -66,8 +63,8 @@ func UnmarshalCustomCurve(curve elliptic.Curve, privateKeyStr, publicKeyStr stri
 		return nil, err
 	}
 
-	privateKey := &ecdsa.PrivateKey{publicKey, D}
-	kp := &KeyPair{privateKey: privateKey}
+	privateKey := &ecdsa.PrivateKey{PublicKey: publicKey, D: D}
+	kp := &KeyPair{curve: curve, privateKey: privateKey}
 
 	return kp, nil
 }
@@ -84,7 +81,7 @@ func UnmarshalPublicCustomCurve(curve elliptic.Curve, publicKeyStr string) (ecds
 		return ecdsa.PublicKey{}, fmt.Errorf("Invalid publicKey: %s", publicKeyStr)
 	}
 
-	publicKey := ecdsa.PublicKey{curve, X, Y}
+	publicKey := ecdsa.PublicKey{Curve: curve, X: X, Y: Y}
 
 	return publicKey, nil
 }
@@ -97,11 +94,16 @@ func (kp *KeyPair) Marshal() (privateKey, publicKey string) {
 }
 
 // GenerateSecret generate shared secret
-func (kp *KeyPair) GenerateSecret(anotherPublicKey ecdsa.PublicKey) (string, error) {
+func (kp *KeyPair) GenerateSecret(anotherPublicKey ecdsa.PublicKey) (*SharedSecret, error) {
 	x, _ := kp.curve.ScalarMult(anotherPublicKey.X, anotherPublicKey.Y, kp.privateKey.D.Bytes())
 	if x == nil {
-		return "", errors.New("GenerateSecret failed")
+		return nil, errors.New("GenerateSecret failed")
 	}
 
-	return x.String(), nil
+	sharedSecret, err := NewSharedSecret(x.String()[0:32])
+	if err != nil {
+		return nil, fmt.Errorf("NewSharedSecret: %v", err)
+	}
+
+	return sharedSecret, nil
 }
